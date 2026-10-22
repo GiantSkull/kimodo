@@ -27,6 +27,8 @@ from kimodo.viz.viser_utils import (
 )
 from viser.theme import TitlebarButton, TitlebarConfig, TitlebarImage
 
+from kimodo.gs import panel as gs_panel
+
 from . import generation, ui
 from .config import (
     DARK_THEME,
@@ -275,6 +277,7 @@ class Demo:
             del self.client_sessions[client_id]
         self.start_direction_markers.pop(client_id, None)
         self.grid_handles.pop(client_id, None)
+        gs_panel.forget_client(client_id)
 
     def _setup_demo_for_client(self, client: viser.ClientHandle) -> None:
         """Initialize scene, GUI, and session state for a client (no modals)."""
@@ -430,7 +433,10 @@ class Demo:
         ci = len(session.motions)
         character_name = f"character{ci}"
         # build character skeleton and skinning mesh
-        if "g1" in session.model_name:
+        custom_skin = gs_panel.character_skin(client_id, skeleton)
+        if custom_skin is not None:
+            mesh_mode = "custom_skin"
+        elif "g1" in session.model_name:
             mesh_mode = "g1_stl"
         elif "smplx" in session.model_name:
             mesh_mode = "smplx_skin"
@@ -455,6 +461,7 @@ class Demo:
             dark_mode=session.gui_elements.gui_dark_mode_checkbox.value,
             mesh_mode=mesh_mode,
             gui_use_soma_layer_checkbox=session.gui_elements.gui_use_soma_layer_checkbox,
+            custom_skin=custom_skin,
         )
 
         # if no motion given, initialize to character default (rest) pose for one frame

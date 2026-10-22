@@ -8,6 +8,7 @@ import threading
 from typing import Optional
 
 from kimodo.constraints import load_constraints_lst, save_constraints_lst
+from kimodo.gs import panel as gs_panel
 from kimodo.exports.bvh import motion_to_bvh_bytes, save_motion_bvh
 from kimodo.exports.motion_io import (
     amass_npz_to_bytes,
@@ -187,6 +188,8 @@ def create_gui(
     # Playback and Motion generation controls
     #
     with tab_group.add_tab("Generate", viser.Icon.WALK):
+        # Giant Skull: studio character picker and game export, first so people find it.
+        gs_panel.create_gui(demo, client)
         with client.gui.add_folder("Model Selection", expand_by_default=True):
             info = get_model_info(model_name)
             if info is None:
@@ -1614,26 +1617,11 @@ def create_gui(
                         color="red",
                     )
 
-        @gui_save_example_button.on_click
-        def _(event: viser.GuiEvent) -> None:
+        def save_example_to_dir(event_client: viser.ClientHandle, session: ClientSession, save_dir: str) -> None:
+            """Saves constraints, motion and prompts/settings to a new example directory (raises on failure)."""
             from kimodo.tools import save_json
 
-            event_client = event.client
-            session = get_active_session(event_client)
-            if session is None:
-                return
-
-            save_dir = gui_save_example_path_text.value
-            if os.path.exists(save_dir):
-                event_client.add_notification(
-                    title="Failed to save example!",
-                    body="Example directory already exists",
-                    auto_close_seconds=10.0,
-                    color="red",
-                )
-                return
-
-            try:
+            if True:  # keeps the upstream indentation of this block
                 os.makedirs(save_dir)
                 # save the constraints
                 constraint_path = os.path.join(save_dir, "constraints.json")
@@ -1681,6 +1669,25 @@ def create_gui(
                 session.example_dict = viser_utils.load_example_cases(session.examples_base_dir)
                 update_examples_dropdown(session.example_dict, keep_selection=True)
 
+        @gui_save_example_button.on_click
+        def _(event: viser.GuiEvent) -> None:
+            event_client = event.client
+            session = get_active_session(event_client)
+            if session is None:
+                return
+
+            save_dir = gui_save_example_path_text.value
+            if os.path.exists(save_dir):
+                event_client.add_notification(
+                    title="Failed to save example!",
+                    body="Example directory already exists",
+                    auto_close_seconds=10.0,
+                    color="red",
+                )
+                return
+
+            try:
+                save_example_to_dir(event_client, session, save_dir)
                 event_client.add_notification(
                     title="Example saved!",
                     body=f"Saved example to {save_dir}",
@@ -2133,6 +2140,8 @@ def create_gui(
                 )
                 return
             load_example_from_path(event_client, example_path, gui_load_gt_checkbox.value)
+
+        gs_panel.register_project_io(client_id, save=save_example_to_dir, load=load_example_from_path)
 
         @gui_cfg_checkbox.on_update
         def _(_) -> None:

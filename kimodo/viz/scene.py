@@ -344,6 +344,7 @@ class Character:
         dark_mode: bool = False,
         mesh_mode: Optional[str] = None,
         gui_use_soma_layer_checkbox: Optional[viser.GuiCheckboxHandle] = None,
+        custom_skin=None,
     ):
         self.server = server
         self.name = name
@@ -364,7 +365,27 @@ class Character:
         self.mesh_mode = mesh_mode
         self.g1_mesh_rig = None
         if create_skinned_mesh:
-            if isinstance(self.skeleton, (SOMASkeleton30, SOMASkeleton77)) and mesh_mode in [
+            if custom_skin is not None and mesh_mode == "custom_skin":
+                # Giant Skull: a studio character driven by the SOMA motion (kimodo.gs.retarget.CharacterSkin).
+                self.skin = custom_skin
+                self.skinned_mesh = server.scene.add_mesh_simple(
+                    f"/{name}/simple_skinned",
+                    vertices=self.skin.bind_vertices.cpu().numpy(),
+                    faces=self.skin.faces.cpu().numpy(),
+                    opacity=None,
+                    color=LIGHT_THEME["mesh"] if not dark_mode else DARK_THEME["mesh"],
+                    wireframe=False,
+                    visible=False,
+                )
+                self.skinned_verts_cache = None
+                bind_pos = self.skeleton.neutral_joints.clone()
+                bind_pos[:, 1] -= bind_pos[:, 1].min().item()
+                bind_rotmat = torch.eye(3, device=bind_pos.device).repeat(bind_pos.shape[0], 1, 1)
+                self.set_pose(bind_pos, bind_rotmat)
+                self.skinned_mesh.visible = True
+                self.set_skinned_mesh_visibility(visible_skinned_mesh)
+                self.set_skinned_mesh_opacity(skinned_mesh_opacity)
+            elif isinstance(self.skeleton, (SOMASkeleton30, SOMASkeleton77)) and mesh_mode in [
                 "soma_skin",
                 "soma_layer_skin",
             ]:
